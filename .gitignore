@@ -1,0 +1,58 @@
+﻿# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Test and coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+pytest-cache-files-*/
+
+# Type/lint/cache
+.mypy_cache/
+.ruff_cache/
+.pyre/
+
+# Build/dist
+build/
+dist/
+*.whl
+
+# Runtime/temp
+.tmp/
+*.log
+uvicorn*.log
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# IDE/editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project local artifacts
+nanoassist.db
+*.sqlite
+*.sqlite3
+
+# JS/node (if frontend assets appear later)
+node_modules/
