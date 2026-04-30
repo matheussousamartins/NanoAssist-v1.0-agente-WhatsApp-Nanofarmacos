@@ -9,13 +9,21 @@ const QUICK_REPLIES = [
   { label: "SIM", value: "SIM" },
   { label: "NÃO", value: "NAO" },
   { label: "PIX", value: "1" },
-  { label: "RX-MOCK-001", value: "RX-MOCK-001" },
-  { label: "RX-MOCK-002", value: "RX-MOCK-002" },
-  { label: "RX-MOCK-003", value: "RX-MOCK-003" },
+  { label: "Link", value: "2" },
+  { label: "CONFIRMAR", value: "CONFIRMAR" },
+  { label: "ALTERAR", value: "ALTERAR" },
 ];
 
 function formatTime(ts: number) {
   return new Date(ts).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+}
+
+function renderText(text: string) {
+  return text.split(/(\*[^*]+\*)/g).map((part, i) =>
+    part.startsWith("*") && part.endsWith("*") && part.length > 2
+      ? <strong key={i}>{part.slice(1, -1)}</strong>
+      : <span key={i}>{part}</span>
+  );
 }
 
 export function ChatPane() {
@@ -86,7 +94,7 @@ export function ChatPane() {
               <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
                 <span className="text-4xl">💊</span>
                 <p className="text-sm text-gray-500">Envie uma mensagem para iniciar o fluxo.</p>
-                <p className="text-xs text-gray-400">Use os atalhos abaixo para respostas rápidas.</p>
+                <p className="text-xs text-gray-400">Use os atalhos abaixo ou digite livremente.</p>
               </div>
             ) : (
               messages.map((msg) => (
@@ -99,7 +107,7 @@ export function ChatPane() {
                       msg.role === "user" ? "bg-[#d9fdd3]" : "bg-white"
                     }`}
                   >
-                    <p className="whitespace-pre-wrap text-sm text-gray-800">{msg.text}</p>
+                    <p className="whitespace-pre-wrap text-sm text-gray-800">{renderText(msg.text)}</p>
                     <span className="float-right ml-4 mt-0.5 text-[10px] text-gray-400">
                       {formatTime(msg.timestamp)}
                       {msg.role === "user" && " ✓✓"}
@@ -159,7 +167,7 @@ export function ChatPane() {
               onChange={(e) => setDraft(e.target.value)}
               placeholder="Digite uma mensagem"
               disabled={isSending}
-              className="flex-1 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm outline-none transition focus:border-[#075e54] disabled:opacity-60"
+              className="flex-1 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm text-gray-900 placeholder:text-gray-400 outline-none transition focus:border-[#075e54] disabled:opacity-60"
             />
             <button
               type="submit"
