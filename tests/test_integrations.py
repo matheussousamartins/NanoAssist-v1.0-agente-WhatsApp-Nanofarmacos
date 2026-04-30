@@ -116,25 +116,117 @@ def test_webhook_test_returns_agent_response_without_whatsapp_send():
 
 
 @pytest.mark.asyncio
-async def test_crm_search_recipe_success(httpx_mock, monkeypatch):
+async def test_crm_search_recipe_by_name(httpx_mock, monkeypatch):
     monkeypatch.setattr(settings, "app_env", "production")
     monkeypatch.setattr(settings, "receitaface_mock_enabled", False)
-    monkeypatch.setattr(crm_client, "token", "token-valido")
+    monkeypatch.setattr(crm_client, "nanocare_url", "https://api.nanocare.com.br/api")
+    monkeypatch.setattr(crm_client, "nanocare_token", "nck_token-valido")
     monkeypatch.setattr(crm_client, "session_cookie", "")
-    monkeypatch.setattr(crm_client, "use_session", False)
-    monkeypatch.setattr(crm_client, "base_url", "https://app.receitaface.com.br")
-    monkeypatch.setattr(crm_client, "search_path", "/api/recipes/search")
-    monkeypatch.setattr(crm_client, "query_param", "q")
+
+    recipe_id = "822c9af2-c073-482b-9294-e23d18fb4002"
     httpx_mock.add_response(
         method="GET",
-        url="https://app.receitaface.com.br/api/recipes/search?q=RX-001",
-        json={"found": True, "recipe": {"id": "RX-001"}},
+        url=f"https://api.nanocare.com.br/api/integrations/recipes?patientName=Maria",
+        json={
+            "found": True,
+            "recipes": [{"id": recipe_id, "patient_name": "Maria Silva", "status": "active"}],
+            "pagination": {"page": 1, "page_size": 20, "total": 1},
+        },
+        status_code=200,
+    )
+    httpx_mock.add_response(
+        method="GET",
+        url=f"https://api.nanocare.com.br/api/integrations/recipes/{recipe_id}",
+        json={
+            "found": True,
+            "recipe": {
+                "id": recipe_id,
+                "patient": {"name": "Maria Silva", "cpf": None},
+                "status": "active",
+                "formula": "Progesterona 100mg",
+                "dosage": "1 capsula/dia",
+                "items": [],
+                "prescriber": {"name": "Dra. Camila Souza", "registry": "CRM-SC 100001"},
+                "created_at": "2026-04-24T05:48:05Z",
+                "expires_at": "2026-05-24T13:48:05Z",
+            },
+        },
         status_code=200,
     )
 
-    result = await crm_client.search_recipe("RX-001")
+    result = await crm_client.search_recipe("Maria")
     assert result["found"] is True
-    assert result["recipe"]["id"] == "RX-001"
+    assert result["recipe"]["id"] == recipe_id
+    assert result["recipe"]["patient"] == "Maria Silva"
+    assert result["recipe"]["formula"] == "Progesterona 100mg"
+
+
+@pytest.mark.asyncio
+async def test_crm_search_recipe_by_uuid(httpx_mock, monkeypatch):
+    monkeypatch.setattr(settings, "app_env", "production")
+    monkeypatch.setattr(settings, "receitaface_mock_enabled", False)
+    monkeypatch.setattr(crm_client, "nanocare_url", "https://api.nanocare.com.br/api")
+    monkeypatch.setattr(crm_client, "nanocare_token", "nck_token-valido")
+    monkeypatch.setattr(crm_client, "session_cookie", "")
+
+    recipe_id = "822c9af2-c073-482b-9294-e23d18fb4002"
+    httpx_mock.add_response(
+        method="GET",
+        url=f"https://api.nanocare.com.br/api/integrations/recipes/{recipe_id}",
+        json={
+            "found": True,
+            "recipe": {
+                "id": recipe_id,
+                "patient": {"name": "Eduardo Nunes", "cpf": None},
+                "status": "active",
+                "formula": "Formula Relax Nano",
+                "dosage": "1 sachê/dia",
+                "items": [],
+                "prescriber": {"name": "Dra. Camila Souza", "registry": "CRM-SC 100001"},
+                "created_at": "2026-04-24T05:48:05Z",
+                "expires_at": "2026-05-24T13:48:05Z",
+            },
+        },
+        status_code=200,
+    )
+
+    result = await crm_client.search_recipe(recipe_id)
+    assert result["found"] is True
+    assert result["recipe"]["patient"] == "Eduardo Nunes"
+
+
+@pytest.mark.asyncio
+async def test_crm_search_recipe_expired_returns_error(httpx_mock, monkeypatch):
+    monkeypatch.setattr(settings, "app_env", "production")
+    monkeypatch.setattr(settings, "receitaface_mock_enabled", False)
+    monkeypatch.setattr(crm_client, "nanocare_url", "https://api.nanocare.com.br/api")
+    monkeypatch.setattr(crm_client, "nanocare_token", "nck_token-valido")
+    monkeypatch.setattr(crm_client, "session_cookie", "")
+
+    recipe_id = "822c9af2-c073-482b-9294-e23d18fb4099"
+    httpx_mock.add_response(
+        method="GET",
+        url=f"https://api.nanocare.com.br/api/integrations/recipes/{recipe_id}",
+        json={
+            "found": True,
+            "recipe": {
+                "id": recipe_id,
+                "patient": {"name": "Carlos Viana", "cpf": None},
+                "status": "expired",
+                "formula": "Vitamina D",
+                "dosage": "1 capsula/dia",
+                "items": [],
+                "prescriber": None,
+                "created_at": "2026-03-01T00:00:00Z",
+                "expires_at": "2026-04-01T00:00:00Z",
+            },
+        },
+        status_code=200,
+    )
+
+    result = await crm_client.search_recipe(recipe_id)
+    assert result["found"] is False
+    assert result["error"] == "recipe_expired"
 
 
 @pytest.mark.asyncio

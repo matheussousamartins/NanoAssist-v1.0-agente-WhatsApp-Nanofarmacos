@@ -54,6 +54,46 @@ async def node_f1_buscar(state: AgentState) -> AgentState:
             "step": ConversationStep.AGUARDANDO_HUMANO,
         }
 
+    if error == "recipe_expired":
+        return {
+            **state,
+            "response": (
+                "Esta receita esta expirada. Solicite uma nova receita ao seu medico "
+                "e entre em contato novamente."
+            ),
+            "step": ConversationStep.INITIAL,
+        }
+
+    if error == "recipe_used":
+        return {
+            **state,
+            "response": (
+                "Esta receita ja foi utilizada anteriormente e nao pode ser reutilizada. "
+                "Em caso de duvidas, entre em contato com nossa equipe."
+            ),
+            "step": ConversationStep.INITIAL,
+        }
+
+    if error == "recipe_cancelled":
+        return {
+            **state,
+            "response": (
+                "Esta receita foi cancelada. "
+                "Entre em contato com seu medico para mais informacoes."
+            ),
+            "step": ConversationStep.INITIAL,
+        }
+
+    if error == "recipe_pending":
+        return {
+            **state,
+            "response": (
+                "Sua receita esta aguardando validacao do medico prescritor. "
+                "Vou transferir para um especialista acompanhar sua situacao."
+            ),
+            "step": ConversationStep.AGUARDANDO_HUMANO,
+        }
+
     if result.get("found") and result.get("recipe"):
         r = result["recipe"]
 

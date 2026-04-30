@@ -18,20 +18,23 @@ class Settings(BaseSettings):
     medipharma_token: str = ""
     medipharma_base_url: str = "https://api.medipharma.com.br"
 
-    # --- ReceitaFace ---
-    receitaface_token: str = ""
-    receitaface_base_url: str = "https://app.receitaface.com.br"
-    receitaface_recipe_search_path: str = "/api/recipes/search"
-    receitaface_query_param: str = "q"
+    # --- NanoCare Receitas API (integração oficial) ---
+    nanocare_api_url: str = ""      # Ex: https://api.nanocare.com.br/api  (sem barra final)
+    nanocare_api_token: str = ""    # Token Bearer (prefixo nck_...)
+
+    # Mock (ative apenas em desenvolvimento — desative em produção)
+    receitaface_mock_enabled: bool = False
+    receitaface_mock_delay_ms: int = 0
+
+    # Fallback: modo sessão web (workaround — manter enquanto API oficial não cobrir todos os casos)
     receitaface_use_session: bool = False
     receitaface_session_cookie: str = ""
     receitaface_csrf_token: str = ""
+    receitaface_base_url: str = "https://app.receitaface.com.br"
     receitaface_list_path: str = "/receita/data/todas"
     receitaface_details_path: str = "/receita/visualizar/detalhes"
     receitaface_referer_path: str = "/receita/visualizar/todas"
     receitaface_page_length: int = 10
-    receitaface_mock_enabled: bool = False
-    receitaface_mock_delay_ms: int = 0
 
     # --- IA ---
     anthropic_api_key: str = ""
