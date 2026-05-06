@@ -8,6 +8,10 @@ pydantic-settings>=2.0.0
 python-dotenv>=1.0.0
 loguru>=0.7.0
 slowapi>=0.1.9
+# PostgreSQL — necessário apenas em produção (DATABASE_URL=postgresql://...)
+langgraph-checkpoint-postgres>=2.0.0
+psycopg[binary]>=3.1.0
+# Testes
 pytest>=8.0.0
 pytest-asyncio>=0.23.0
 pytest-httpx>=0.30.0

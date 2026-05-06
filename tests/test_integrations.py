@@ -344,6 +344,7 @@ async def test_crm_mock_search_recipe_timeout_scenario(monkeypatch):
 async def test_crm_search_recipe_session_mode_success(httpx_mock, monkeypatch):
     monkeypatch.setattr(settings, "app_env", "production")
     monkeypatch.setattr(settings, "receitaface_mock_enabled", False)
+    monkeypatch.setattr(crm_client, "nanocare_token", "")
     monkeypatch.setattr(crm_client, "use_session", True)
     monkeypatch.setattr(crm_client, "session_cookie", "_csrf=abc; _session_id=def")
     monkeypatch.setattr(crm_client, "base_url", "https://app.receitaface.com.br")
@@ -389,6 +390,7 @@ async def test_crm_search_recipe_session_mode_success(httpx_mock, monkeypatch):
 async def test_crm_search_recipe_session_mode_not_found(httpx_mock, monkeypatch):
     monkeypatch.setattr(settings, "app_env", "production")
     monkeypatch.setattr(settings, "receitaface_mock_enabled", False)
+    monkeypatch.setattr(crm_client, "nanocare_token", "")
     monkeypatch.setattr(crm_client, "use_session", True)
     monkeypatch.setattr(crm_client, "session_cookie", "_csrf=abc; _session_id=def")
     monkeypatch.setattr(crm_client, "base_url", "https://app.receitaface.com.br")

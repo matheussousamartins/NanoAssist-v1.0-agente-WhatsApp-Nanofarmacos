@@ -65,6 +65,10 @@ class Settings(BaseSettings):
     # --- Ambiente ---
     app_env: str = "development"
     log_level: str = "INFO"
+    # Origens permitidas no CORS — separadas por vírgula
+    # Desenvolvimento: * (qualquer origem)
+    # Produção: "https://seudominio.com.br,https://www.seudominio.com.br"
+    cors_origins: str = "*"
 
 
 @lru_cache

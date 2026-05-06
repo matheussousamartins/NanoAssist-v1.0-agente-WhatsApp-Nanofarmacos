@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from typing import Any, Optional
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from loguru import logger
 from pydantic import BaseModel
@@ -34,9 +35,31 @@ checkpointer = None
 graph = None
 
 
+def _validate_production_config() -> None:
+    """Falha rápido se variáveis críticas não estiverem configuradas em produção."""
+    if settings.app_env != "production":
+        return
+    missing = []
+    if not settings.webhook_secret.strip():
+        missing.append("WEBHOOK_SECRET")
+    if not settings.nanocare_api_token.strip():
+        missing.append("NANOCARE_API_TOKEN")
+    if not settings.crm_token.strip() and not settings.dix_token.strip():
+        missing.append("CRM_TOKEN (ou DIX_TOKEN)")
+    if not settings.rede_pv.strip():
+        missing.append("REDE_PV")
+    if not settings.rede_integration_token.strip():
+        missing.append("REDE_INTEGRATION_TOKEN")
+    if missing:
+        raise RuntimeError(
+            f"Variáveis obrigatórias em produção não configuradas: {', '.join(missing)}"
+        )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global checkpointer, graph
+    _validate_production_config()
     checkpointer = get_checkpointer()
     graph = build_graph(checkpointer=checkpointer)
     logger.info(f"NanoAssist iniciado — ambiente: {settings.app_env}")
@@ -47,6 +70,15 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="NanoAssist", version="1.0.0", lifespan=lifespan)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+_cors_origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_cors_origins,
+    allow_credentials=False,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type", "X-Webhook-Signature", "X-Hub-Signature-256", "X-Signature"],
+)
 
 
 class WebhookPayload(BaseModel):

@@ -1,10 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  typedRoutes: true,
   experimental: {
     serverActions: {
-      allowedOrigins: ["localhost"],
+      allowedOrigins: process.env.ALLOWED_ORIGINS
+        ? process.env.ALLOWED_ORIGINS.split(",").map((s) => s.trim())
+        : ["localhost", "localhost:3000"],
     },
   },
 };
