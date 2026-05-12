@@ -1,3 +1,5 @@
+import re
+
 from agent.state import AgentState, ConversationStep
 from agent.tools.crm import crm_client
 from agent.tools.payment import payment_client
@@ -30,8 +32,38 @@ CONFIRM_FINAL = """Pedido confirmado e encaminhado ao laboratório!
 Obrigado por escolher a *Nanofarmacos*!"""
 
 
+def _extract_cpf_and_recipe_code(message: str) -> tuple[str | None, str | None]:
+    cpf_match = re.search(r"\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b", message or "")
+    if not cpf_match:
+        return None, None
+
+    cpf = re.sub(r"\D", "", cpf_match.group(0))
+    remainder = ((message or "")[:cpf_match.start()] + " " + (message or "")[cpf_match.end():]).strip()
+    remainder = re.sub(
+        r"(?i)\b(cpf|codigo|c[oó]digo|id|receita|da|do|titular)\b\s*[:=-]?",
+        " ",
+        remainder,
+    )
+    code_match = re.search(r"[A-Za-z0-9][A-Za-z0-9._/-]*", remainder)
+    if not code_match:
+        return cpf, None
+
+    return cpf, code_match.group(0).strip(" .,:;")
+
+
 async def node_f1_buscar(state: AgentState) -> AgentState:
-    result = await crm_client.search_recipe(state["message"].strip())
+    cpf, recipe_code = _extract_cpf_and_recipe_code(state["message"].strip())
+    if not cpf or not recipe_code:
+        return {
+            **state,
+            "response": (
+                "Para localizar sua receita com seguranca, envie o *CPF do titular* "
+                "e o *Codigo/ID da Receita* na mesma mensagem."
+            ),
+            "step": ConversationStep.F1_AGUARDANDO_ID,
+        }
+
+    result = await crm_client.search_recipe_by_cpf_and_code(cpf, recipe_code)
     error = result.get("error")
 
     if error in {"session_expired", "unauthorized"}:
@@ -50,6 +82,16 @@ async def node_f1_buscar(state: AgentState) -> AgentState:
             "response": (
                 "O sistema de receitas esta indisponivel no momento. "
                 "Vou transferir seu atendimento para um especialista humano."
+            ),
+            "step": ConversationStep.AGUARDANDO_HUMANO,
+        }
+
+    if error == "security_validation_unavailable":
+        return {
+            **state,
+            "response": (
+                "Nao foi possivel validar o CPF com a receita no momento. "
+                "Vou transferir para um especialista continuar seu atendimento."
             ),
             "step": ConversationStep.AGUARDANDO_HUMANO,
         }
@@ -125,7 +167,7 @@ A receita esta correta?
 
     return {
         **state,
-        "response": "Nao encontramos receita com os dados informados. Verifique e tente novamente, ou entre em contato com nossa equipe.",
+        "response": "Nao encontramos receita com os dados informados. Verifique o CPF e o Codigo/ID da Receita e tente novamente, ou entre em contato com nossa equipe.",
         "step": ConversationStep.F1_AGUARDANDO_ID,
     }
 

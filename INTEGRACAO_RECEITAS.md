@@ -71,6 +71,14 @@ Accept: application/json
 
 Precisamos do endpoint oficial para busca de receita por ID, CPF ou nome.
 
+Para o Fluxo 1 do WhatsApp, a regra de seguranca operacional passa a exigir
+validacao combinada de CPF do titular + codigo/ID da receita. O bot nao deve
+liberar os dados da receita quando apenas um desses campos confere.
+
+**Prioridade para producao:** o endpoint de CPF + codigo/ID da receita deve ser
+homologado antes de liberar o Fluxo 1, pois ele e a camada de seguranca que
+impede terceiros de consultarem uma receita apenas sabendo um dado isolado.
+
 Informar:
 
 - Metodo HTTP
@@ -95,10 +103,83 @@ GET /api/recipes?cpf={cpf}
 GET /api/recipes?patient_name={nome}
 ```
 
+### Busca segura por CPF + codigo da receita
+
+Recomendado:
+
+```http
+GET /api/recipes/{id}?cpf={cpf}
+Authorization: Bearer TOKEN
+Accept: application/json
+```
+
+Alternativa:
+
+```http
+POST /api/recipes/validate
+Content-Type: application/json
+
+{
+  "recipe_id": "RX-001",
+  "cpf": "12345678900"
+}
+```
+
+Regras obrigatorias:
+
+- `id`/`recipe_id` e `cpf` sao obrigatorios.
+- O CPF pode ser enviado sem mascara (`12345678900`); informar se a API tambem aceita mascara.
+- Retornar `found: true` somente quando a receita existir, estiver ativa e o CPF informado pertencer ao titular da receita.
+- Em caso de CPF incorreto, receita inexistente ou combinacao invalida, retornar erro generico/nao encontrado, sem indicar qual campo falhou.
+- Nao retornar dados da receita se a validacao CPF + codigo falhar.
+- O response de sucesso deve incluir `patient.cpf`, pois o bot tambem usa esse campo como salvaguarda local.
+- Informar se a comparacao de CPF e feita apenas por digitos e se ha normalizacao interna.
+
+Exemplo de sucesso:
+
+```json
+{
+  "found": true,
+  "recipe": {
+    "id": "RX-001",
+    "patient": {
+      "name": "Maria Silva",
+      "cpf": "12345678900"
+    },
+    "status": "active",
+    "formula": "Progesterona 100mg + DHEA 25mg",
+    "dosage": "1 capsula ao dia pela manha",
+    "items": [],
+    "prescriber": {
+      "name": "Dr. Exemplo",
+      "registry": "CRM 00000"
+    },
+    "created_at": "2026-04-24T10:00:00-03:00",
+    "expires_at": "2026-05-24T23:59:59-03:00"
+  }
+}
+```
+
+Exemplo de falha segura:
+
+```json
+{
+  "found": false,
+  "recipe": null,
+  "error": {
+    "code": "recipe_not_found",
+    "message": "Receita nao encontrada"
+  }
+}
+```
+
 ## 5. Request Esperado
 
 Enviar exemplos reais de request para os seguintes casos:
 
+- Validar receita por codigo/ID + CPF correto
+- Validar receita por codigo/ID + CPF incorreto
+- Validar receita por codigo/ID inexistente + CPF valido
 - Buscar por ID da receita
 - Buscar por CPF
 - Buscar por nome completo
@@ -196,10 +277,14 @@ Precisamos mapear pelo menos:
 - `400`: request invalida
 - `401`: token ausente, invalido ou expirado
 - `403`: sem permissao
-- `404`: receita nao encontrada
+- `404`: receita nao encontrada, CPF incorreto para a receita ou combinacao CPF + codigo invalida
 - `429`: rate limit
 - `500`: erro interno
 - `502`, `503`, `504`: indisponibilidade temporaria
+
+Para a busca segura por CPF + codigo, preferimos que CPF incorreto e receita
+inexistente tenham a mesma resposta publica (`404` ou `found: false` com
+`recipe_not_found`). Isso evita expor se um codigo de receita existe.
 
 Exemplo desejado:
 

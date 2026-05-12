@@ -19,6 +19,7 @@ import asyncio
 import html
 import re
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 from loguru import logger
@@ -53,6 +54,13 @@ _STATUS_ERRORS: dict[str, str] = {
 # ---------------------------------------------------------------------------
 
 MOCK_RECIPES = [
+    {
+        "id": "RX-001",
+        "patient": "Maria Silva",
+        "cpf": "12345678900",
+        "formula": "Progesterona 100mg + DHEA 25mg",
+        "dosage": "1 capsula/dia pela manha",
+    },
     {
         "id": "RX-MOCK-001",
         "patient": "Maria Silva",
@@ -212,6 +220,10 @@ class CRMClient:
 
         return await self._search_and_fetch({"patientName": clean})
 
+    async def _search_nanocare_by_cpf_and_code(self, cpf: str, recipe_code: str) -> dict:
+        result = await self._fetch_by_id(quote(recipe_code.strip(), safe=""))
+        return self._validate_recipe_cpf(result, cpf)
+
     # ------------------------------------------------------------------
     # Modo 2: sessão web — ReceitaFace (legado)
     # ------------------------------------------------------------------
@@ -355,6 +367,40 @@ class CRMClient:
         logger.info("[MOCK CRM] no match")
         return {"found": False, "recipe": None}
 
+    async def _mock_search_recipe_by_cpf_and_code(self, cpf: str, recipe_code: str) -> dict:
+        q_code = (recipe_code or "").strip().lower()
+        q_cpf = self._digits(cpf)
+
+        if q_code in {"timeout", "simular timeout", "simular_timeout"}:
+            logger.warning("[MOCK CRM] timeout scenario")
+            return {"found": False, "recipe": None, "error": "timeout"}
+
+        for recipe in MOCK_RECIPES:
+            if q_code == recipe["id"].lower() and q_cpf == recipe["cpf"]:
+                logger.info(f"[MOCK CRM] secure matched: {recipe['id']}")
+                return {"found": True, "recipe": {k: v for k, v in recipe.items() if k != "cpf"}}
+
+        logger.info("[MOCK CRM] secure no match")
+        return {"found": False, "recipe": None, "error": "recipe_identity_mismatch"}
+
+    def _validate_recipe_cpf(self, result: dict, cpf: str) -> dict:
+        if not result.get("found") or not result.get("recipe"):
+            return result
+
+        recipe = result["recipe"]
+        recipe_cpf = self._digits(str(recipe.get("cpf") or ""))
+        informed_cpf = self._digits(cpf)
+
+        if not recipe_cpf:
+            logger.warning("[CRM] Receita encontrada sem CPF para validacao de seguranca")
+            return {"found": False, "recipe": None, "error": "security_validation_unavailable"}
+
+        if recipe_cpf != informed_cpf:
+            logger.info("[CRM] CPF informado nao corresponde ao CPF vinculado a receita")
+            return {"found": False, "recipe": None, "error": "recipe_identity_mismatch"}
+
+        return result
+
     # ------------------------------------------------------------------
     # Interface pública
     # ------------------------------------------------------------------
@@ -384,6 +430,34 @@ class CRMClient:
             return {"found": False, "recipe": None, "error": "timeout"}
         except Exception as exc:
             logger.error(f"[CRM] Erro inesperado: {exc}")
+            return {"found": False, "recipe": None}
+
+    async def search_recipe_by_cpf_and_code(self, cpf: str, recipe_code: str) -> dict:
+        if self._use_mock():
+            return await self._mock_search_recipe_by_cpf_and_code(cpf, recipe_code)
+
+        try:
+            if self.nanocare_token:
+                return await self._search_nanocare_by_cpf_and_code(cpf, recipe_code)
+            if self._use_session_mode():
+                logger.warning("[CRM] Modo sessao nao permite validar CPF + codigo com seguranca")
+                return {"found": False, "recipe": None, "error": "security_validation_unavailable"}
+            logger.error("[CRM] Nenhuma autenticação configurada (NANOCARE_API_TOKEN vazio)")
+            return {"found": False, "recipe": None, "error": "service_unavailable"}
+
+        except httpx.HTTPStatusError as exc:
+            status = exc.response.status_code
+            logger.error(f"[CRM] HTTP {status} na busca segura de receita")
+            if status in {401, 403}:
+                return {"found": False, "recipe": None, "error": "unauthorized"}
+            if status in {429, 500, 502, 503, 504}:
+                return {"found": False, "recipe": None, "error": "service_unavailable"}
+            return {"found": False, "recipe": None}
+        except httpx.TimeoutException:
+            logger.error("[CRM] Timeout na busca segura de receita")
+            return {"found": False, "recipe": None, "error": "timeout"}
+        except Exception as exc:
+            logger.error(f"[CRM] Erro inesperado na busca segura: {exc}")
             return {"found": False, "recipe": None}
 
 

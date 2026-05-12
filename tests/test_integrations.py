@@ -196,6 +196,74 @@ async def test_crm_search_recipe_by_uuid(httpx_mock, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_crm_search_recipe_by_cpf_and_code_success(httpx_mock, monkeypatch):
+    monkeypatch.setattr(settings, "app_env", "production")
+    monkeypatch.setattr(settings, "receitaface_mock_enabled", False)
+    monkeypatch.setattr(crm_client, "nanocare_url", "https://api.nanocare.com.br/api")
+    monkeypatch.setattr(crm_client, "nanocare_token", "nck_token-valido")
+    monkeypatch.setattr(crm_client, "session_cookie", "")
+
+    recipe_id = "822c9af2-c073-482b-9294-e23d18fb4002"
+    httpx_mock.add_response(
+        method="GET",
+        url=f"https://api.nanocare.com.br/api/integrations/recipes/{recipe_id}",
+        json={
+            "found": True,
+            "recipe": {
+                "id": recipe_id,
+                "patient": {"name": "Maria Silva", "cpf": "12345678900"},
+                "status": "active",
+                "formula": "Progesterona 100mg",
+                "dosage": "1 capsula/dia",
+                "items": [],
+                "prescriber": {"name": "Dra. Camila Souza", "registry": "CRM-SC 100001"},
+                "created_at": "2026-04-24T05:48:05Z",
+                "expires_at": "2026-05-24T13:48:05Z",
+            },
+        },
+        status_code=200,
+    )
+
+    result = await crm_client.search_recipe_by_cpf_and_code("123.456.789-00", recipe_id)
+    assert result["found"] is True
+    assert result["recipe"]["patient"] == "Maria Silva"
+
+
+@pytest.mark.asyncio
+async def test_crm_search_recipe_by_cpf_and_code_mismatch_returns_not_found(httpx_mock, monkeypatch):
+    monkeypatch.setattr(settings, "app_env", "production")
+    monkeypatch.setattr(settings, "receitaface_mock_enabled", False)
+    monkeypatch.setattr(crm_client, "nanocare_url", "https://api.nanocare.com.br/api")
+    monkeypatch.setattr(crm_client, "nanocare_token", "nck_token-valido")
+    monkeypatch.setattr(crm_client, "session_cookie", "")
+
+    recipe_id = "822c9af2-c073-482b-9294-e23d18fb4002"
+    httpx_mock.add_response(
+        method="GET",
+        url=f"https://api.nanocare.com.br/api/integrations/recipes/{recipe_id}",
+        json={
+            "found": True,
+            "recipe": {
+                "id": recipe_id,
+                "patient": {"name": "Maria Silva", "cpf": "12345678900"},
+                "status": "active",
+                "formula": "Progesterona 100mg",
+                "dosage": "1 capsula/dia",
+                "items": [],
+                "prescriber": {"name": "Dra. Camila Souza", "registry": "CRM-SC 100001"},
+                "created_at": "2026-04-24T05:48:05Z",
+                "expires_at": "2026-05-24T13:48:05Z",
+            },
+        },
+        status_code=200,
+    )
+
+    result = await crm_client.search_recipe_by_cpf_and_code("00000000000", recipe_id)
+    assert result["found"] is False
+    assert result["error"] == "recipe_identity_mismatch"
+
+
+@pytest.mark.asyncio
 async def test_crm_search_recipe_expired_returns_error(httpx_mock, monkeypatch):
     monkeypatch.setattr(settings, "app_env", "production")
     monkeypatch.setattr(settings, "receitaface_mock_enabled", False)
@@ -329,7 +397,23 @@ async def test_crm_mock_search_recipe_match(monkeypatch):
     monkeypatch.setattr(settings, "receitaface_mock_enabled", True)
     result = await crm_client.search_recipe("maria")
     assert result["found"] is True
+    assert result["recipe"]["patient"] == "Maria Silva"
+
+
+@pytest.mark.asyncio
+async def test_crm_mock_search_recipe_by_cpf_and_code_match(monkeypatch):
+    monkeypatch.setattr(settings, "receitaface_mock_enabled", True)
+    result = await crm_client.search_recipe_by_cpf_and_code("111.222.333-44", "RX-MOCK-001")
+    assert result["found"] is True
     assert result["recipe"]["id"] == "RX-MOCK-001"
+
+
+@pytest.mark.asyncio
+async def test_crm_mock_search_recipe_by_cpf_and_code_mismatch(monkeypatch):
+    monkeypatch.setattr(settings, "receitaface_mock_enabled", True)
+    result = await crm_client.search_recipe_by_cpf_and_code("00000000000", "RX-MOCK-001")
+    assert result["found"] is False
+    assert result["error"] == "recipe_identity_mismatch"
 
 
 @pytest.mark.asyncio

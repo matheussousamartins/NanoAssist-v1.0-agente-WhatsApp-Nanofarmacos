@@ -14,11 +14,14 @@ INVALID_OPTION = """Opção inválida. Por favor, digite *1* ou *2* para continu
 *1️⃣* - Receita na plataforma
 *2️⃣* - Novo orçamento"""
 
-ASK_ID = """Para localizar sua formulação, informe um dos dados abaixo:
+ASK_ID = """Para localizar sua formulacao com seguranca, envie em *uma mensagem*:
 
-📋 *ID da Receita*
+📋 *Codigo/ID da Receita*
 🪪 *CPF do Titular*
-👤 *Nome Completo Cadastrado*"""
+
+Exemplo:
+Codigo: RX-001
+CPF: 123.456.789-00"""
 
 ASK_DATA = """Para elaborar seu orçamento, envie os dados abaixo em *uma mensagem* e anexe a *receita em PDF*:
 
